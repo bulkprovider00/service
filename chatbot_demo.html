@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chatbot Demo · SMM Support Widget</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #f5f3ff 0%, #eef2ff 50%, #f0fdfa 100%);
+      color: #1e293b; min-height: 100vh; line-height: 1.6;
+    }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 64px 24px 120px; }
+    .badge { display: inline-block; background: #ede9fe; color: #6c5ce7; font-size: 13px;
+      font-weight: 600; padding: 6px 14px; border-radius: 999px; margin-bottom: 20px; }
+    h1 { font-size: 40px; line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 16px; }
+    h1 .g { background: linear-gradient(90deg, #6c5ce7, #8b5cf6); -webkit-background-clip: text;
+      background-clip: text; -webkit-text-fill-color: transparent; }
+    .lead { font-size: 18px; color: #475569; max-width: 620px; margin-bottom: 40px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; margin-bottom: 44px; }
+    .card { background: #fff; border: 1px solid #eef0f4; border-radius: 16px; padding: 22px;
+      box-shadow: 0 4px 20px rgba(15,23,42,.05); }
+    .card .ic { font-size: 26px; margin-bottom: 10px; }
+    .card h3 { font-size: 16px; margin-bottom: 6px; }
+    .card p { font-size: 14px; color: #64748b; }
+    .hint { background: #fff; border: 1px solid #eef0f4; border-radius: 16px; padding: 22px 24px;
+      box-shadow: 0 4px 20px rgba(15,23,42,.05); }
+    .hint h2 { font-size: 17px; margin-bottom: 12px; }
+    .hint ul { list-style: none; }
+    .hint li { padding: 7px 0 7px 26px; position: relative; color: #475569; font-size: 15px; }
+    .hint li::before { content: "→"; position: absolute; left: 0; color: #6c5ce7; font-weight: 700; }
+    .embed { margin-top: 26px; }
+    .embed code { display: block; background: #0f172a; color: #e2e8f0; padding: 16px 18px;
+      border-radius: 12px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; overflow-x: auto; }
+    .arrow { position: fixed; right: 96px; bottom: 40px; color: #6c5ce7; font-weight: 600; font-size: 14px; animation: bob 1.6s ease-in-out infinite; }
+    @keyframes bob { 0%,100%{ transform: translateY(0);} 50%{ transform: translateY(-6px);} }
+    @media (max-width:600px){ h1{font-size:30px;} .arrow{display:none;} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <span class="badge">● Live demo</span>
+    <h1>Your AI support agent, <span class="g">ready to chat</span></h1>
+    <p class="lead">This page simulates your SMM panel. The chat widget in the bottom-right
+      is the real thing — it answers from your live order data. Tap it and try a question.</p>
+
+    <div class="grid">
+      <div class="card"><div class="ic">🏆</div><h3>Best service</h3><p>Recommends top-performing services from real completion data.</p></div>
+      <div class="card"><div class="ic">💰</div><h3>Pricing & cost</h3><p>Estimates order cost from recent real prices.</p></div>
+      <div class="card"><div class="ic">📦</div><h3>Order tracking</h3><p>Checks live status by order ID.</p></div>
+      <div class="card"><div class="ic">💬</div><h3>Human-like</h3><p>Natural replies in the customer's own language.</p></div>
+    </div>
+
+    <div class="hint">
+      <h2>Try asking:</h2>
+      <ul>
+        <li>Which Instagram followers service is best?</li>
+        <li>How much for 5000 TikTok likes?</li>
+        <li>Track my order 123456</li>
+        <li>Instagram e follower er best service konta? (Banglish)</li>
+        <li>How do I place an order?</li>
+      </ul>
+      <div class="embed">
+        <h2 style="margin:22px 0 12px;">Embed on your site</h2>
+        <code>&lt;script src="__WIDGET_SRC__" async&gt;&lt;/script&gt;</code>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow">Try me →</div>
+
+  <!-- The widget -->
+  <script src="/widget.js" async></script>
+  <script>
+    // show the correct absolute embed snippet for this host
+    document.addEventListener("DOMContentLoaded", function () {
+      var c = document.querySelector(".embed code");
+      if (c) c.textContent = '<script src="' + location.origin + '/widget.js" async><\/script>';
+    });
+  </script>
+</body>
+</html>

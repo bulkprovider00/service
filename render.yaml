@@ -1,0 +1,31 @@
+# Render Blueprint — BulkProvider AI Chatbot
+# Render dashboard e: New + → Blueprint → ei repo select → env var boshiye Deploy
+services:
+  - type: web
+    name: bulkprovider-ai-chatbot
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python api.py
+    # /api/status noy — oita protibar puro statistics hisab kore.
+    # /api/health instant, tai first sync cholakaleo health check fail kore na.
+    healthCheckPath: /api/health
+    envVars:
+      # --- SECRETS: dashboard e boshate hobe (repo te jabe na) ---
+      - key: SMM_ADMIN_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SMM_USER_API_KEY
+        sync: false
+      # --- Public config (inline safe) ---
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: CHATBOT_PANEL_NAME
+        value: BulkProvider
+      - key: CHATBOT_PANEL_DOMAIN
+        value: bulkprovider.com
+      - key: CHATBOT_BRAND_COLOR
+        value: "#6c5ce7"
+      - key: SMM_CURRENCY
+        value: USD

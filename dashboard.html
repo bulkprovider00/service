@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SMM Service Performance Dashboard</title>
+<style>
+  :root{
+    --bg:#0f1220; --panel:#181d35; --panel2:#12162b; --border:#262c4f;
+    --text:#e8eaf6; --muted:#8a93b8; --muted2:#9aa3c7;
+    --accent:#7c9eff; --accent2:#4a5aff;
+    --green:#22c55e; --yellow:#eab308; --red:#ef4444; --gold:#ffb020;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+  a{color:inherit;text-decoration:none}
+
+  .header{background:linear-gradient(135deg,#1a1f3a 0%,#2d1b4e 100%);padding:24px;text-align:center;border-bottom:1px solid var(--border)}
+  .header h1{font-size:25px;margin-bottom:6px}
+  .header p{color:var(--muted2);font-size:14px}
+  .container{max-width:1280px;margin:0 auto;padding:20px 16px 60px}
+
+  /* control bar */
+  .controlbar{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+  .status-mode{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+  .dot.off{background:var(--red);box-shadow:0 0 8px var(--red)}
+  .status-meta{color:var(--muted);font-size:12px;display:flex;gap:16px;flex-wrap:wrap;flex:1}
+  .status-meta b{color:var(--text)}
+  .btn{background:var(--accent2);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;transition:filter .15s,opacity .15s}
+  .btn:hover{filter:brightness(1.15)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--muted2)}
+  .toggle{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;cursor:pointer;user-select:none}
+  .toggle input{accent-color:var(--accent2);width:15px;height:15px}
+
+  /* stat cards */
+  .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px}
+  .stat-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:15px;text-align:center}
+  .stat-card .num{font-size:23px;font-weight:700;color:var(--accent)}
+  .stat-card .lbl{font-size:12px;color:var(--muted);margin-top:4px}
+
+  h2{font-size:19px;margin:28px 0 14px;color:#fff}
+  h2 span{color:var(--accent)}
+
+  /* filters */
+  .filterbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap}
+  .tab{background:var(--panel2);border:1px solid var(--border);color:var(--muted2);border-radius:20px;padding:6px 14px;font-size:13px;cursor:pointer;transition:all .15s}
+  .tab:hover{border-color:var(--accent2)}
+  .tab.active{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+  .filterbar select,.filterbar input{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:13px}
+  .filterbar input{min-width:200px}
+  .filterbar .spacer{flex:1}
+  .count-note{color:var(--muted);font-size:12px}
+
+  /* platform blocks + cards */
+  .platform-block{margin-bottom:26px}
+  .platform-title{font-size:16px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .badge{background:#2a3160;color:#aebfff;font-size:11px;padding:3px 10px;border-radius:20px}
+  .cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+  .svc-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px;position:relative;transition:transform .15s,border-color .15s}
+  .svc-card:hover{transform:translateY(-3px);border-color:var(--accent2)}
+  .svc-card.best{border-color:var(--gold);box-shadow:0 0 18px rgba(255,176,32,.13)}
+  .svc-card .cat{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .svc-card .sid{font-size:18px;font-weight:700;margin:4px 0}
+  .svc-card .name{font-size:13px;color:#c3cae8;margin-bottom:12px;min-height:32px}
+  .score-ring{position:absolute;top:14px;right:14px;width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px}
+  .sc-high{background:conic-gradient(var(--green) calc(var(--p)*1%),#1e2542 0)}
+  .sc-mid{background:conic-gradient(var(--yellow) calc(var(--p)*1%),#1e2542 0)}
+  .sc-low{background:conic-gradient(var(--red) calc(var(--p)*1%),#1e2542 0)}
+  .score-ring::before{content:attr(data-score);position:absolute;inset:5px;background:var(--panel);border-radius:50%;display:flex;align-items:center;justify-content:center}
+  .metrics{display:flex;gap:6px;flex-wrap:wrap}
+  .m{background:var(--panel2);border-radius:8px;padding:6px 9px;font-size:11px;color:var(--muted2)}
+  .m b{color:var(--text);display:block;font-size:13px}
+  .crown{font-size:12px;color:var(--gold);font-weight:700;margin-top:10px;display:flex;justify-content:space-between;align-items:center}
+  .api-link{font-size:11px;color:var(--accent);border:1px solid var(--border);border-radius:6px;padding:2px 8px}
+  .api-link:hover{border-color:var(--accent)}
+
+  /* table */
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:1180px}
+  th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+  th{background:var(--panel2);color:var(--muted2);font-weight:600;cursor:pointer;user-select:none;position:sticky;top:0}
+  th:hover{color:#fff}
+  th .arrow{opacity:.5;font-size:10px}
+  tbody tr{transition:background .12s}
+  tbody tr:hover{background:#1d2340}
+  td.svc{white-space:normal;min-width:220px}
+  td.svc .nm{color:#c9d0ee}
+  td.svc .sub{color:var(--muted);font-size:11px}
+  .pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:12px;background:#2a3160;color:#aebfff}
+  .pill.off{background:rgba(239,68,68,.18);color:#ffa1a1}
+  .pill.warn{background:rgba(234,179,8,.18);color:#f2d472}
+  .pill.new{background:rgba(124,158,255,.22);color:#aec3ff;font-weight:700}
+  .pill.thin{background:rgba(120,113,108,.28);color:#c9c2bd;font-weight:700}
+  .pill.up{background:rgba(34,197,94,.18);color:#7ff0a8}
+  tr.dead td{opacity:.5}
+  .score-badge{font-weight:700;padding:3px 9px;border-radius:8px;font-size:12px}
+  .sb-high{background:rgba(34,197,94,.18);color:#7ff0a8}
+  .sb-mid{background:rgba(234,179,8,.18);color:#f2d472}
+  .sb-low{background:rgba(239,68,68,.18);color:#ffa1a1}
+  .bar{height:6px;border-radius:4px;background:#20264a;overflow:hidden;margin-top:4px;width:80px}
+  .bar>span{display:block;height:100%;border-radius:4px}
+
+  /* endpoints panel */
+  .ep-panel{border:1px solid var(--border);border-radius:12px;background:var(--panel);overflow:hidden}
+  .ep-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .ep-row:last-child{border-bottom:none}
+  .ep-row:hover{background:#1d2340}
+  .method{font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;min-width:46px;text-align:center}
+  .m-get{background:rgba(34,197,94,.18);color:#7ff0a8}
+  .m-post{background:rgba(124,158,255,.2);color:#aec3ff}
+  .ep-path{font-family:'Consolas',monospace;font-size:13px;color:var(--accent);flex:0 0 auto}
+  .ep-path:hover{text-decoration:underline}
+  .ep-desc{color:var(--muted);font-size:12px;flex:1;min-width:140px}
+  .copy-btn{background:var(--panel2);border:1px solid var(--border);color:var(--muted2);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer}
+  .copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .copy-btn.done{color:var(--green);border-color:var(--green)}
+
+  #loading{text-align:center;padding:60px;color:var(--muted)}
+  .empty{text-align:center;padding:40px;color:var(--muted);background:var(--panel);border:1px dashed var(--border);border-radius:12px}
+  .foot{text-align:center;color:var(--muted);font-size:12px;margin-top:30px}
+  .spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:5px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  #loading-sub{margin-top:10px;font-size:13px;opacity:.7;font-weight:500}
+  .errcard{max-width:760px;margin:40px auto;padding:26px 28px;border-radius:16px;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,120,120,.35);
+    box-shadow:0 10px 40px rgba(0,0,0,.25)}
+  .errtitle{font-size:18px;font-weight:800;margin-bottom:10px}
+  .errmsg{font-size:14px;line-height:1.7;opacity:.85;margin-bottom:14px}
+  .errlist{margin:0 0 18px 18px;font-size:13px;line-height:1.9;opacity:.8}
+  .errlist code{font-family:'JetBrains Mono',monospace;font-size:12px;
+    padding:2px 6px;border-radius:5px;background:rgba(255,255,255,.08)}
+  .warnbar{margin:0 0 18px;padding:13px 16px;border-radius:12px;font-size:13.5px;
+    font-weight:600;line-height:1.6;background:rgba(255,190,80,.10);
+    border:1px solid rgba(255,190,80,.35)}
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>📊 SMM Service Performance Dashboard</h1>
+    <p>Ranked from real orders over the last <b id="hdr-window">120</b> days · recent orders weighted more · auto-synced daily</p>
+  </div>
+
+  <div class="container">
+    <div id="loading">⏳ Loading statistics…<div id="loading-sub"></div></div>
+
+    <div id="errbox" style="display:none">
+      <div class="errcard">
+        <div class="errtitle" id="err-title">⚠️ Could not load the dashboard</div>
+        <div class="errmsg" id="err-msg"></div>
+        <ul class="errlist" id="err-list"></ul>
+        <button class="btn" id="btn-retry">↻ Try again</button>
+      </div>
+    </div>
+
+    <div id="content" style="display:none">
+      <div id="warnbar" class="warnbar" style="display:none"></div>
+      <!-- control bar -->
+      <div class="controlbar">
+        <span class="status-mode"><span class="dot" id="mode-dot"></span><span id="mode-text">LIVE</span></span>
+        <div class="status-meta" id="status-meta"></div>
+        <label class="toggle"><input type="checkbox" id="auto-refresh" checked> Auto-refresh</label>
+        <button class="btn ghost" id="btn-refresh">↻ Refresh</button>
+        <button class="btn" id="btn-sync">⚡ Sync Now</button>
+      </div>
+
+      <!-- summary -->
+      <div class="stats-row" id="totals"></div>
+
+      <!-- best services -->
+      <h2>🏆 Best service in <span>every category</span></h2>
+      <div class="filterbar">
+        <div class="tabs" id="platform-tabs"></div>
+      </div>
+      <div id="platforms"></div>
+
+      <!-- full ranking table -->
+      <h2>📋 <span>Full ranking</span> (all services)</h2>
+      <div class="filterbar">
+        <select id="f-platform"></select>
+        <select id="f-category"></select>
+        <input type="text" id="f-search" placeholder="🔍 Search by service name or ID…">
+        <label class="toggle"><input type="checkbox" id="f-active"> Available only</label>
+        <div class="spacer"></div>
+        <span class="count-note" id="table-count"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr id="thead-row"></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- api endpoints -->
+      <h2>🔗 <span>API endpoints</span> (click to open, or copy)</h2>
+      <div class="ep-panel" id="endpoints"></div>
+
+      <div class="foot" id="foot"></div>
+    </div>
+  </div>
+
+<script>
+const ICONS={Facebook:'📘',Instagram:'📸',TikTok:'🎵',YouTube:'▶️',Twitter:'🐦',Telegram:'✈️',LinkedIn:'💼',Threads:'🧵',Snapchat:'👻',Discord:'🎮',Spotify:'🎧',Pinterest:'📌',Twitch:'🟣',Other:'🌐'};
+const ORIGIN=location.origin;
+const state={ai:null,status:null,services:[],platform:'All',fPlatform:'',fCategory:'',search:'',activeOnly:false,sort:{key:'score',dir:'desc'},auto:true};
+let timer=null;
+
+const $=s=>document.querySelector(s);
+const fmt=n=>(n==null?'—':Number(n).toLocaleString());
+const scoreClass=s=>s>=85?'high':s>=70?'mid':'low';
+
+/* ---------------------------------------------------------------------------
+   Data loading.
+
+   Render's free plan sleeps after 15 minutes, so the first request of the day
+   can take the better part of a minute just to wake the container. On top of
+   that the stats endpoints do real aggregation work on a shared 0.1 CPU. So
+   every request gets an explicit timeout, each one is allowed to fail on its
+   own, and any failure is reported on screen instead of leaving the page
+   sitting on the spinner forever.
+--------------------------------------------------------------------------- */
+const TIMEOUT_MS=60000;   // generous: covers a Render free-plan cold start
+const RETRIES=2;          // a cold start usually clears on the second try
+
+function getJSON(path,ms,method){
+  const ctl=new AbortController();
+  const t=setTimeout(()=>ctl.abort(),ms||TIMEOUT_MS);
+  return fetch(path,{signal:ctl.signal,method:method||'GET'})
+    .then(async r=>{
+      if(!r.ok){
+        let detail='';
+        try{ detail=(await r.text()).slice(0,180); }catch(e){}
+        throw new Error(`HTTP ${r.status}${detail?' — '+detail:''}`);
+      }
+      return r.json();
+    })
+    .catch(e=>{
+      if(e.name==='AbortError') throw new Error(`timed out after ${Math.round((ms||TIMEOUT_MS)/1000)}s`);
+      if(e instanceof SyntaxError) throw new Error('server sent a non-JSON response (usually a 502 while the container restarts)');
+      throw new Error(e.message||'network error');
+    })
+    .finally(()=>clearTimeout(t));
+}
+
+const ENDPOINTS=[
+  ['status','/api/status'],
+  ['ai','/api/statistics/ai'],
+  ['services','/api/statistics/services?admin=true'],
+];
+
+function showLoading(msg){
+  $('#loading').style.display='';
+  $('#errbox').style.display='none';
+  $('#loading-sub').textContent=msg||'';
+}
+
+function showError(failures){
+  $('#loading').style.display='none';
+  $('#content').style.display='none';
+  $('#errbox').style.display='';
+  $('#err-msg').textContent=
+    'The page reached the server but the data endpoints did not come back. '+
+    'The exact failure for each one is below.';
+  $('#err-list').innerHTML=failures.map(f=>
+    `<li><code>${f.path}</code> — ${f.error}</li>`).join('');
+}
+
+async function fetchAll(attempt){
+  attempt=attempt||1;
+  if(attempt===1) showLoading('');
+  else showLoading(`Server is waking up — retrying (${attempt} of ${RETRIES+1})…`);
+
+  const results=await Promise.allSettled(
+    ENDPOINTS.map(([,path])=>getJSON(path)));
+
+  const failures=[];
+  const got={};
+  results.forEach((r,i)=>{
+    const [key,path]=ENDPOINTS[i];
+    if(r.status==='fulfilled') got[key]=r.value;
+    else failures.push({path,error:r.reason.message});
+  });
+
+  // Everything failed and we have retries left — a cold start looks exactly
+  // like this, so give it another go before showing an error.
+  if(failures.length===ENDPOINTS.length && attempt<=RETRIES){
+    await new Promise(r=>setTimeout(r,2500*attempt));
+    return fetchAll(attempt+1);
+  }
+  if(failures.length===ENDPOINTS.length){ showError(failures); return; }
+
+  state.status=got.status||null;
+  state.ai=got.ai||null;
+  state.services=(got.services&&got.services.services)||[];
+
+  $('#loading').style.display='none';
+  $('#errbox').style.display='none';
+  $('#content').style.display='block';
+
+  renderWarnings(failures);
+  renderStatus(); renderTotals(); renderPlatformTabs(); renderBest();
+  renderFilters(); renderTable(); renderEndpoints(); renderFoot();
+}
+
+/* Says out loud why the page is empty, instead of quietly showing zeros. */
+function renderWarnings(failures){
+  const st=state.status||{};
+  const t=(state.ai&&state.ai.totals)||{};
+  const bar=$('#warnbar');
+  const msgs=[];
+
+  if(failures&&failures.length)
+    msgs.push('⚠️ Partly loaded — '+failures.map(f=>`<code>${f.path}</code> (${f.error})`).join(', '));
+
+  if(st.mode==='no-api-key')
+    msgs.push('🔑 <b>SMM_ADMIN_API_KEY is not set</b>, so nothing can be synced. Add it in the Render dashboard → Environment, then redeploy.');
+  else if(st.sync_running)
+    msgs.push(`🔄 First sync is still running${st.sync_progress?` — ${Number(st.sync_progress).toLocaleString()} orders fetched so far`:''}. Numbers will fill in as it finishes.`);
+  else if(!st.last_sync)
+    msgs.push(`📭 No sync has completed yet. Press <b>Sync Now</b>, and if it fails check that <code>${st.api_base||'SMM_ADMIN_API_BASE'}</code> is the right admin API for this panel.`);
+  else if(state.ai&&!t.total_orders)
+    msgs.push('📭 The last sync completed but returned no orders in the rolling window. Check the admin API key’s permissions and the window setting.');
+
+  bar.innerHTML=msgs.join('<br>');
+  bar.style.display=msgs.length?'':'none';
+}
+
+function renderStatus(){
+  const st=state.status||{};
+  const live=st.mode==='live';
+  $('#mode-dot').className='dot'+(live?'':' off');
+  $('#mode-text').textContent=live?'LIVE':(st.mode==='no-api-key'?'NO API KEY':'—');
+  const sync=st.last_sync;
+  $('#hdr-window').textContent=st.rolling_window_days??'120';
+  $('#status-meta').innerHTML=
+    `<span>Last sync: <b>${sync?sync.run_at:'never'}</b>${sync?` (${fmt(sync.orders_fetched)} orders)`:''}</span>`+
+    `<span>Daily auto-sync: <b>${st.daily_sync_at||'00:00'}</b></span>`+
+    `<span>Window: <b>${st.rolling_window_days||120} days</b></span>`+
+    `<span>Half-life: <b>${st.decay_halflife_days||14} days</b></span>`;
+}
+
+function renderTotals(){
+  const t=(state.ai&&state.ai.totals)||{};
+  const svcs=state.services;
+  const avgScore=svcs.length?(svcs.reduce((a,s)=>a+(s.score||0),0)/svcs.length):0;
+  const successRate=t.total_orders?(( (t.completed||0)+(t.partial||0))/t.total_orders*100):0;
+  const cards=[
+    [fmt(t.total_orders),'Total orders'],
+    [fmt(t.total_services),'Services'],
+    [fmt(t.completed),'Completed'],
+    [successRate.toFixed(1)+'%','Success rate'],
+    [fmt(t.platforms),'Platforms'],
+    [fmt(t.services_unavailable),'Needs attention'],
+    [fmt(t.services_new),'New services'],
+    [fmt(t.services_thin),'Low recent data'],
+    [fmt(t.services_declining),'Declining'],
+    [avgScore.toFixed(1),'Average score'],
+  ];
+  $('#totals').innerHTML=cards.map(c=>`<div class="stat-card"><div class="num">${c[0]}</div><div class="lbl">${c[1]}</div></div>`).join('');
+}
+
+function renderPlatformTabs(){
+  const plats=(state.ai&&state.ai.platforms)?Object.keys(state.ai.platforms):[];
+  plats.sort((a,b)=>state.ai.platforms[b].total_orders-state.ai.platforms[a].total_orders);
+  const tabs=['All',...plats];
+  $('#platform-tabs').innerHTML=tabs.map(p=>
+    `<div class="tab${state.platform===p?' active':''}" data-p="${p}">${p==='All'?'🌐 All':(ICONS[p]||'🌐')+' '+p}</div>`).join('');
+  document.querySelectorAll('#platform-tabs .tab').forEach(el=>el.onclick=()=>{state.platform=el.dataset.p;renderPlatformTabs();renderBest();});
+}
+
+function renderBest(){
+  if(!state.ai||!state.ai.platforms){
+    $('#platforms').innerHTML='<div class="empty">Platform breakdown unavailable.</div>';return;}
+  let entries=Object.entries(state.ai.platforms).sort((a,b)=>b[1].total_orders-a[1].total_orders);
+  if(state.platform!=='All') entries=entries.filter(([p])=>p===state.platform);
+  let html='';
+  for(const [pname,pdata] of entries){
+    html+=`<div class="platform-block"><div class="platform-title">${ICONS[pname]||'🌐'} ${pname}
+      <span class="badge">${fmt(pdata.total_orders)} orders</span>
+      <span class="badge">${pdata.total_services} services</span></div><div class="cards-grid">`;
+    const cats=Object.entries(pdata.categories).sort((a,b)=>b[1].total_orders-a[1].total_orders);
+    for(const [cname,cdata] of cats){
+      const b=cdata.best_service; if(!b) continue;
+      const cls='sc-'+scoreClass(b.score);
+      html+=`<div class="svc-card best">
+        <div class="score-ring ${cls}" style="--p:${b.score}" data-score="${Math.round(b.score)}"></div>
+        <div class="cat">${cname}</div>
+        <div class="sid">⭐ Service ${b.service_id}</div>
+        <div class="name">${b.service_name||''}</div>
+        <div class="metrics">
+          <div class="m"><b>${b.completion_rate_percent}%</b>delivered</div>
+          <div class="m"><b>${fmt(b.total_orders)}</b>orders</div>
+          <div class="m"><b>${b.median_delivery??'—'}</b>typical</div>
+          <div class="m"><b>${b.p90_delivery??'—'}</b>9-in-10</div>
+        </div>
+        <div class="crown">🔥 Recommended
+          <a class="api-link" href="${ORIGIN}/api/statistics/services/${b.service_id}" target="_blank">API ↗</a>
+        </div>
+      </div>`;
+    }
+    html+='</div></div>';
+  }
+  $('#platforms').innerHTML=html||'<div class="empty">No services match this filter.</div>';
+}
+
+function renderFilters(){
+  const plats=[...new Set(state.services.map(s=>s.platform))].sort();
+  const cats=[...new Set(state.services.map(s=>s.category))].sort();
+  $('#f-platform').innerHTML='<option value="">All platforms</option>'+plats.map(p=>`<option value="${p}">${p}</option>`).join('');
+  $('#f-category').innerHTML='<option value="">All categories</option>'+cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+  $('#f-platform').value=state.fPlatform; $('#f-category').value=state.fCategory; $('#f-search').value=state.search;
+  $('#f-platform').onchange=e=>{state.fPlatform=e.target.value;renderTable();};
+  $('#f-category').onchange=e=>{state.fCategory=e.target.value;renderTable();};
+  $('#f-search').oninput=e=>{state.search=e.target.value.toLowerCase();renderTable();};
+  $('#f-active').checked=state.activeOnly;
+  $('#f-active').onchange=e=>{state.activeOnly=e.target.checked;renderTable();};
+}
+
+const COLS=[
+  {k:'rank',t:'#',sortable:false},
+  {k:'service_name',t:'Service'},
+  {k:'score',t:'Score'},
+  {k:'rank_in_category',t:'In category'},
+  {k:'total_orders',t:'Orders'},
+  {k:'price_per_1000',t:'Price/1k'},
+  {k:'completion_rate_percent',t:'Delivered %'},
+  {k:'issue_rate_percent',t:'Issues %'},
+  {k:'stuck_rate_percent',t:'Stuck %'},
+  {k:'median_hours',t:'Typical'},
+  {k:'p90_hours',t:'9-in-10'},
+  {k:'trend_delta',t:'Trend'},
+];
+
+function renderTable(){
+  let rows=state.services.slice();
+  if(state.fPlatform) rows=rows.filter(s=>s.platform===state.fPlatform);
+  if(state.fCategory) rows=rows.filter(s=>s.category===state.fCategory);
+  if(state.search) rows=rows.filter(s=>(s.service_name||'').toLowerCase().includes(state.search)||String(s.service_id).includes(state.search));
+  if(state.activeOnly) rows=rows.filter(s=>s.available!==false);
+  const {key,dir}=state.sort;
+  rows.sort((a,b)=>{const x=a[key]??-1,y=b[key]??-1;return dir==='asc'?(x>y?1:-1):(x<y?1:-1);});
+
+  $('#thead-row').innerHTML=COLS.map(c=>{
+    const arrow=state.sort.key===c.k?(state.sort.dir==='asc'?'▲':'▼'):'';
+    return `<th data-k="${c.k}" ${c.sortable===false?'style="cursor:default"':''}>${c.t} <span class="arrow">${arrow}</span></th>`;
+  }).join('');
+  document.querySelectorAll('#thead-row th').forEach(th=>{
+    const k=th.dataset.k; if(k==='rank')return;
+    th.onclick=()=>{if(state.sort.key===k){state.sort.dir=state.sort.dir==='asc'?'desc':'asc';}else{state.sort.key=k;state.sort.dir=k==='service_name'?'asc':'desc';}renderTable();};
+  });
+
+  $('#tbody').innerHTML=rows.map((s,i)=>{
+    const sc=scoreClass(s.score);
+    const compColor=s.completion_rate_percent>=80?'var(--green)':s.completion_rate_percent>=60?'var(--yellow)':'var(--red)';
+    const dead=s.available===false;
+    const TR={improving:['up','↑'],declining:['off','↓'],stable:['','→'],unknown:['','·']};
+    const tr=TR[s.trend]||TR.unknown;
+    return `<tr class="${dead?'dead':''}">
+      <td>${i+1}</td>
+      <td class="svc"><a class="nm" href="${ORIGIN}/api/statistics/services/${s.service_id}" target="_blank">${s.service_id} · ${s.service_name||''}</a>
+        <div class="sub"><span class="pill">${ICONS[s.platform]||'🌐'} ${s.platform}</span> <span class="pill">${s.category}</span>${s.is_new?' <span class="pill new">NEW</span>':''}${s.is_thin?' <span class="pill thin">THIN</span>':''}${dead?' <span class="pill off">STUCK</span>':''}</div></td>
+      <td><span class="score-badge sb-${sc}">${s.score}</span></td>
+      <td>${s.rank_in_category?`${s.rank_in_category} / ${s.total_in_category}`:'—'}</td>
+      <td>${fmt(s.total_orders)}</td>
+      <td>${s.price_per_1000!=null?Number(s.price_per_1000).toFixed(4).replace(/0+$/,'').replace(/\.$/,''):'—'}</td>
+      <td>${s.completion_rate_percent}%<div class="bar"><span style="width:${Math.min(100,s.completion_rate_percent)}%;background:${compColor}"></span></div></td>
+      <td>${s.issue_rate_percent??'—'}%</td>
+      <td>${s.stuck_rate_percent>0?`<span class="pill off">${s.stuck_rate_percent}%</span>`:'0%'}</td>
+      <td>${s.median_delivery??'—'}</td>
+      <td>${s.p90_delivery??'—'}</td>
+      <td><span class="pill ${tr[0]}" title="${s.trend||''}">${tr[1]}${s.trend_delta!=null?` ${s.trend_delta>0?'+':''}${s.trend_delta}`:''}</span></td>
+    </tr>`;
+  }).join('')||`<tr><td colspan="${COLS.length}"><div class="empty">No services found.</div></td></tr>`;
+  $('#table-count').textContent=`Showing ${rows.length} service${rows.length===1?'':'s'}`;
+}
+
+function renderEndpoints(){
+  const p=(state.fPlatform||'facebook').toLowerCase();
+  const c=(state.fCategory||'likes').toLowerCase();
+  const sid=state.services[0]?state.services[0].service_id:1001;
+  const eps=[
+    ['GET','/','This dashboard'],
+    ['GET','/docs','Swagger UI — interactive API docs'],
+    ['GET','/api/status','System status and last sync'],
+    ['GET','/api/statistics/ai','⭐ Everything in one call (for the AI)'],
+    ['GET','/api/statistics/best-services','Top services across all platforms'],
+    ['GET','/api/statistics/services','Full stats for every service'],
+    ['GET',`/api/statistics/${p}/best-services`,'Best service per category on a platform'],
+    ['GET',`/api/statistics/${p}/${c}`,'Full ranking for one platform + category'],
+    ['GET',`/api/statistics/services/${sid}`,'Full detail for one service'],
+    ['GET','/api/orders/completed','✅ Live completed-order feed (website Statistics page)'],
+    ['GET',`/api/orders/completed?service_id=${sid}`,'Completed orders for one service'],
+    ['GET',`/api/orders/completed/${sid}`,'Recent delivery times + average (New Order chips)'],
+    ['GET','/api/services/public','Customer-safe service list'],
+    ['GET','/smm-stats.js','Embeddable feed widget script'],
+    ['GET','/widget.js','Embeddable AI chat widget script'],
+    ['GET','/chat','Chat widget demo page'],
+    ['POST','/api/sync','Trigger a manual sync (same as Sync Now)'],
+  ];
+  $('#endpoints').innerHTML=eps.map(([method,path,desc])=>{
+    const full=ORIGIN+path;
+    const isGet=method==='GET';
+    const pathHtml=isGet?`<a class="ep-path" href="${full}" target="_blank">${path}</a>`:`<span class="ep-path">${path}</span>`;
+    return `<div class="ep-row">
+      <span class="method m-${method.toLowerCase()}">${method}</span>
+      ${pathHtml}
+      <span class="ep-desc">${desc}</span>
+      <button class="copy-btn" data-url="${full}">📋 Copy</button>
+    </div>`;
+  }).join('');
+  document.querySelectorAll('.copy-btn').forEach(b=>b.onclick=()=>{
+    navigator.clipboard.writeText(b.dataset.url).then(()=>{
+      const o=b.textContent;b.textContent='✓ Copied';b.classList.add('done');
+      setTimeout(()=>{b.textContent=o;b.classList.remove('done');},1500);
+    });
+  });
+}
+
+function renderFoot(){
+  const g=(state.ai&&state.ai.generated_at)||(state.status&&state.status.generated_at)||'';
+  $('#foot').textContent=`Generated ${g} • SMM Service Performance & Recommendation Engine`;
+}
+
+// controls
+$('#btn-refresh').onclick=()=>fetchAll();
+$('#btn-retry').onclick=()=>fetchAll();
+$('#auto-refresh').onchange=e=>{state.auto=e.target.checked;setupTimer();};
+$('#btn-sync').onclick=async function(){
+  const btn=this;btn.disabled=true;const old=btn.innerHTML;btn.innerHTML='<span class="spin"></span>Syncing…';
+  try{
+    // A first sync on a large panel can run for several minutes.
+    const j=await getJSON('/api/sync',300000,'POST');
+    btn.innerHTML=j.ok?'✓ Synced':'✗ Failed';
+    if(!j.ok&&j.error){
+      $('#warnbar').innerHTML='⚠️ Sync failed — '+j.error;
+      $('#warnbar').style.display='';
+    }
+    await fetchAll();
+  }catch(e){
+    btn.innerHTML='✗ Failed';
+    $('#warnbar').innerHTML='⚠️ Sync failed — '+e.message;
+    $('#warnbar').style.display='';
+  }
+  setTimeout(()=>{btn.innerHTML=old;btn.disabled=false;},2500);
+};
+
+function setupTimer(){if(timer)clearInterval(timer);if(state.auto)timer=setInterval(fetchAll,60000);}
+
+fetchAll();
+setupTimer();
+</script>
+</body>
+</html>
